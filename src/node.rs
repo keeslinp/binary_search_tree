@@ -51,6 +51,41 @@ impl Node {
             }
         }
     }
+
+    fn get_left(&self, key: i32) -> Result<i32, String> {
+        let Node { ref left, .. } = *self;
+        match *left {
+            Some(ref child) => child.get(key),
+            None => {
+                Err(String::from("That key doesn't exist"))
+            },
+        }
+    }
+    
+    fn get_right(&self, key: i32) -> Result<i32, String> {
+        let Node { ref right, .. } = *self;
+        match *right {
+            Some(ref child) => child.get(key),
+            None => {
+                Err(String::from("That key doesn't exist"))
+            },
+        }
+    }
+
+    pub fn get(&self, key: i32) -> Result<i32, String> {
+        match key {
+            key if key < self.key => {
+                self.get_left(key)
+            },
+            key if key > self.key => {
+                self.get_right(key)
+            },
+            key if key == self.key => {
+                Ok(self.value)
+            },
+            _ => Err(String::from("Error"))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -88,4 +123,18 @@ mod test {
         let mut node = Node::new(1, 1);
         assert!(node.add((12, 1)).is_err());
     }
+
+    #[test]
+    fn test_get() {
+        let mut node = Node::new(1, 1);
+        node.add((2, 3)).unwrap();
+        assert!(node.get(3).unwrap() == 2);
+    }
+
+    #[test]
+    fn test_cannot_find() {
+        let node = Node::new(1, 1);
+        assert!(node.get(3).is_err());
+    }
 }
+

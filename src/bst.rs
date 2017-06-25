@@ -1,4 +1,5 @@
 use node::Node;
+
 pub struct BST {
     root: Option<Box<Node>>,
 }
@@ -29,6 +30,14 @@ impl BST {
             },
         }
     }
+
+    pub fn get(&self, key: i32) -> Result<i32, String> {
+        let BST { ref root, .. } = *self;
+        match *root {
+            Some(ref node) => node.get(key),
+            None => Err(String::from("This tree is empty")),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -42,5 +51,19 @@ mod tests {
         let mut bst = BST::new();
         bst.add((1, 2)).unwrap();
         assert!(bst.root.is_some());
+    }
+
+    #[test]
+    fn test_get() {
+        let mut bst = BST::new();
+        bst.add((1, 2)).unwrap();
+        bst.add((2, 4)).unwrap();
+        assert!(bst.get(4).unwrap() == 2);
+    }
+
+    #[test]
+    fn test_get_empty() {
+        let bst = BST::new();
+        assert!(bst.get(3).is_err());
     }
 }
