@@ -38,6 +38,23 @@ impl BST {
             None => Err(String::from("This tree is empty")),
         }
     }
+
+    pub fn remove(&mut self, target_key: i32) -> Result<i32, String> {
+        let BST { ref mut root, .. } = *self;
+        match *root {
+            Some (_) => {
+                let key = root.as_ref().unwrap().key;
+                if key == target_key {
+                    let value = root.as_ref().unwrap().value;
+                    *root = None;
+                    Ok(value)
+                } else {
+                    root.as_mut().unwrap().remove(target_key)
+                }
+            },
+            None => Err(String::from("This tree is empty")),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -65,5 +82,19 @@ mod tests {
     fn test_get_empty() {
         let bst = BST::new();
         assert!(bst.get(3).is_err());
+    }
+
+    #[test]
+    fn remove_root() {
+        let mut bst = BST::new();
+        bst.add((1, 1)).unwrap();
+        bst.remove(1).unwrap();
+        assert!(bst.root.is_none());
+    }
+
+    #[test]
+    fn remove_empty() {
+        let mut bst = BST::new();
+        assert!(bst.remove(1).is_err());
     }
 }
