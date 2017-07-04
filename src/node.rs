@@ -1,3 +1,5 @@
+use errors::Errors;
+
 #[derive(Debug)]
 pub struct Node {
     left: Option<Box<Node>>,
@@ -6,8 +8,9 @@ pub struct Node {
     pub value: i32,
 }
 
+
 impl Node {
-    pub fn new(value: i32, key: i32) -> Box<Node> {
+    pub fn new((value, key): (i32, i32)) -> Box<Node> {
         Box::from(Node {
             left: None,
             right: None,
@@ -16,74 +19,62 @@ impl Node {
         })
     }
 
-    fn add_left(&mut self, (value, key): (i32, i32)) -> Result<(), String> {
+    fn add_left(&mut self, new_node : (i32, i32)) -> Result<(), Errors> {
         let Node { ref mut left, .. } = *self;
-        match *left {
-            Some(ref mut child) => child.add((value, key)),
-            None => {
-                *left = Some(Node::new(value, key));
-                Ok(())
-            },
+        if let &mut Some(ref mut child) = left {
+            child.add(new_node)
+        } else {
+            *left = Some(Node::new(new_node));
+            Ok(())
         }
     }
 
-    fn add_right(&mut self, (value, key): (i32, i32)) -> Result<(), String> {
+    fn add_right(&mut self, new_node: (i32, i32)) -> Result<(), Errors> {
         let Node { ref mut right, .. } = *self;
-        match *right {
-            Some(ref mut child) => child.add((value, key)),
-            None => {
-                *right = Some(Node::new(value, key));
-                Ok(())
-            },
+        if let &mut Some(ref mut child) = right {
+            child.add(new_node)
+        } else {
+            *right = Some(Node::new(new_node));
+            Ok(())
         }
     }
 
-    pub fn add(&mut self, pair: (i32, i32)) -> Result<(), String>{
-        match pair {
-            (_, key) if key < self.key => {
-                self.add_left(pair)
-            },
-            (_, key) if key > self.key => {
-                self.add_right(pair)
-            },
-            _ => {
-                Err(String::from("That key already exists"))
-            }
+    pub fn add(&mut self, (val , key): (i32, i32)) -> Result<(), Errors>{
+
+        if key < self.key {
+            self.add_left((val, key))
+        } else if key > self.key {
+            self.add_right((val, key))
+        } else {
+            Err(Errors::DuplicateKey)
         }
     }
 
-    fn get_left(&self, key: i32) -> Result<i32, String> {
+    fn get_left(&self, key: i32) -> Result<i32, Errors> {
         let Node { ref left, .. } = *self;
-        match *left {
-            Some(ref child) => child.get(key),
-            None => {
-                Err(String::from("That key doesn't exist"))
-            },
+        if let &Some(ref child) = left {
+            child.get(key)
+        } else {
+            Err(Errors::DuplicateKey)
         }
     }
     
-    fn get_right(&self, key: i32) -> Result<i32, String> {
+    fn get_right(&self, key: i32) -> Result<i32, Errors> {
         let Node { ref right, .. } = *self;
-        match *right {
-            Some(ref child) => child.get(key),
-            None => {
-                Err(String::from("That key doesn't exist"))
-            },
+        if let &Some(ref child) = right {
+            child.get(key)
+        } else {
+            Err(Errors::DoesNotExist)
         }
     }
 
-    pub fn get(&self, key: i32) -> Result<i32, String> {
-        match key {
-            key if key < self.key => {
-                self.get_left(key)
-            },
-            key if key > self.key => {
-                self.get_right(key)
-            },
-            key if key == self.key => {
-                Ok(self.value)
-            },
-            _ => Err(String::from("Error"))
+    pub fn get(&self, key: i32) -> Result<i32, Errors> {
+        if key < self.key {
+            self.get_left(key)
+        } else if key > self.key {
+            self.get_right(key)
+        } else {
+            Ok(self.value)
         }
     }
 
@@ -95,60 +86,62 @@ impl Node {
         self.left.as_ref().map(|left| left.get_last_left()).unwrap_or(&self)
     }
 
-    fn remove_node(&self, child: Option<Box<Node>>, target_key: i32) -> (Option<Box<Node>>, Result<i32, String>) {
-        match child {
-            Some(mut node) => {
-                if node.key== target_key {
-                    let val = node.value;
-                    // Anyone wondering about the funky tuple magic here should check
-                    // https://github.com/rust-lang/rust/issues/16223#issuecomment-307237373
-                    ( match (node,) {
-                        (box Node { left: None, right: None, .. },) => {
-                            None
-                        },
-                        (box Node { left: Some(child), right: None, .. },) => {
-                            Some(child)
-                        },
-                        (box Node { left: None, right: Some(child), .. },) => {
-                            Some(child)
-                        },
-                        (box Node { left: Some(child_left), right: Some(child_right), .. },) => {
-                            let &Node { key, value, .. } = child_right.get_last_left();
-                            let mut new_node = Box::from(Node { 
-                                value,
-                                key,
-                                left: Some(child_left),
-                                right: Some(child_right),
-                            });
-                            new_node.remove_right(key).unwrap();
-                            Some(new_node)
-                        },
-                    }, Ok(val))
-                } else {
-                    let resp = node.as_mut().remove(target_key);
-                    (Some(node), resp)
-                }
-            }
-            None => {
-                (None, Err(String::from("That key doesn't exist")))
-            },
+    fn remove_node(mut self: Box<Self>, target_key: i32) -> (Option<Box<Node>>, Result<i32, Errors>) {
+        if self.key == target_key {
+            let val = self.value;
+            // Anyone wondering about the funky tuple magic here should check
+            // https://github.com/rust-lang/rust/issues/16223#issuecomment-307237373
+            ( match (self,) {
+                (box Node { left: None, right: None, .. },) => {
+                    None
+                },
+                (box Node { left: Some(child), right: None, .. },) => {
+                    Some(child)
+                },
+                (box Node { left: None, right: Some(child), .. },) => {
+                    Some(child)
+                },
+                (box Node { left: Some(child_left), right: Some(child_right), .. },) => {
+                    let &Node { key, value, .. } = child_right.get_last_left();
+                    let mut new_self = Box::from(Node { 
+                        value,
+                        key,
+                        left: Some(child_left),
+                        right: Some(child_right),
+                    });
+                    new_self.remove_right(key).unwrap();
+                    Some(new_self)
+                },
+            }, Ok(val))
+        } else {
+            let resp = self.remove(target_key);
+            (Some(self), resp)
         }
     }
-    fn remove_left(&mut self, target_key: i32) -> Result<i32, String> {
+    fn remove_left(&mut self, target_key: i32) -> Result<i32, Errors> {
         let left = self.left.take();
-        let (new_left, outcome) = self.remove_node(left, target_key);
+        let (new_left, outcome) = if let Some(child) = left {
+            child.remove_node(target_key)
+        } else {
+            (None, Err(Errors::DoesNotExist))
+        };
+
         self.left = new_left;
         outcome
     }
 
-    fn remove_right(&mut self, target_key: i32) -> Result<i32, String> {
+    fn remove_right(&mut self, target_key: i32) -> Result<i32, Errors> {
         let right = self.right.take();
-        let (new_right, outcome) = self.remove_node(right, target_key);
+        let (new_right, outcome) = if let Some(child) = right {
+            child.remove_node(target_key)
+        } else {
+            (None, Err(Errors::DoesNotExist))
+        };
         self.right = new_right;
         outcome
     }
 
-    pub fn remove(&mut self, key: i32) -> Result<i32, String> {
+    pub fn remove(&mut self, key: i32) -> Result<i32, Errors> {
         match key {
             key if key < self.key => {
                 self.remove_left(key)
@@ -156,7 +149,7 @@ impl Node {
             key if key > self.key => {
                 self.remove_right(key)
             },
-            _ => Err(String::from("Trying to remove self. Needs to be done at parent level"))
+            _ => Err(Errors::WrongLevel)
         }
     }
 }
@@ -166,26 +159,26 @@ mod test {
     use node::Node;
     #[test]
     fn test_add_left() {
-        let mut node = Node::new(1, 2);
+        let mut node = Node::new((1, 2));
         node.add((1, 1)).unwrap();
         assert!(node.left.unwrap().value == 1);
     }
     #[test]
     fn test_add_left_right() {
-        let mut node = Node::new(1, 3);
+        let mut node = Node::new((1, 3));
         node.add((2, 1)).unwrap();
         node.add((3, 2)).unwrap();
         assert!(node.left.unwrap().right.unwrap().value == 3);
     }
     #[test]
     fn test_add_right() {
-        let mut node = Node::new(1, 1);
+        let mut node = Node::new((1, 1));
         node.add((1, 2)).unwrap();
         assert!(node.right.unwrap().value == 1);
     }
     #[test]
     fn test_add_right_left() {
-        let mut node = Node::new(1, 1);
+        let mut node = Node::new((1, 1));
         node.add((2, 3)).unwrap();
         node.add((3, 2)).unwrap();
         assert!(node.right.unwrap().left.unwrap().value == 3);
@@ -193,26 +186,26 @@ mod test {
 
     #[test]
     fn test_add_duplicate() {
-        let mut node = Node::new(1, 1);
+        let mut node = Node::new((1, 1));
         assert!(node.add((12, 1)).is_err());
     }
 
     #[test]
     fn test_get() {
-        let mut node = Node::new(1, 1);
+        let mut node = Node::new((1, 1));
         node.add((2, 3)).unwrap();
         assert!(node.get(3).unwrap() == 2);
     }
 
     #[test]
     fn test_cannot_find() {
-        let node = Node::new(1, 1);
+        let node = Node::new((1, 1));
         assert!(node.get(3).is_err());
     }
 
     #[test]
     fn test_remove_left_childless() {
-        let mut node = Node::new(1, 3);
+        let mut node = Node::new((1, 3));
         node.add((2, 1)).unwrap();
         node.remove(1).unwrap();
         assert!(node.left.is_none());
@@ -220,7 +213,7 @@ mod test {
 
     #[test]
     fn test_remove_left_one_child_right() {
-        let mut node = Node::new(1, 4);
+        let mut node = Node::new((1, 4));
         node.add((2, 2)).unwrap();
         node.add((3, 3)).unwrap();
         node.remove(2).unwrap();
@@ -228,7 +221,7 @@ mod test {
     }
     #[test]
     fn test_remove_left_one_child_left() {
-        let mut node = Node::new(1, 4);
+        let mut node = Node::new((1, 4));
         node.add((3, 3)).unwrap();
         node.add((2, 2)).unwrap();
         node.remove(3).unwrap();
@@ -236,7 +229,7 @@ mod test {
     }
     #[test]
     fn test_remove_left_two_children() {
-        let mut node = Node::new(1, 5);
+        let mut node = Node::new((1, 5));
         node.add((2, 2)).unwrap();
         node.add((4, 4)).unwrap();
         node.add((3, 3)).unwrap();
@@ -246,7 +239,7 @@ mod test {
     }
     #[test]
     fn test_remove_right_childless() {
-        let mut node = Node::new(1, 3);
+        let mut node = Node::new((1, 3));
         node.add((1, 4)).unwrap();
         node.remove(4).unwrap();
         assert!(node.right.is_none());
@@ -254,7 +247,7 @@ mod test {
 
     #[test]
     fn test_remove_right_one_child_left() {
-        let mut node = Node::new(1, 4);
+        let mut node = Node::new((1, 4));
         node.add((2, 6)).unwrap();
         node.add((3, 5)).unwrap();
         node.remove(6).unwrap();
@@ -262,7 +255,7 @@ mod test {
     }
     #[test]
     fn test_remove_right_one_child_right() {
-        let mut node = Node::new(1, 1);
+        let mut node = Node::new((1, 1));
         node.add((3, 2)).unwrap();
         node.add((2, 3)).unwrap();
         node.remove(2).unwrap();
@@ -270,7 +263,7 @@ mod test {
     }
     #[test]
     fn test_remove_right_two_children() {
-        let mut node = Node::new(1, 1);
+        let mut node = Node::new((1, 1));
         node.add((2, 3)).unwrap();
         node.add((4, 5)).unwrap();
         node.add((3, 4)).unwrap();

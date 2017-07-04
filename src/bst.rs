@@ -1,4 +1,5 @@
 use node::Node;
+use errors::Errors;
 
 pub struct BST {
     root: Option<Box<Node>>,
@@ -19,27 +20,25 @@ impl BST {
         }
     }
 
-
-    pub fn add(&mut self, (value, key): (i32, i32)) -> Result<(), String> {
-        let BST { ref mut root, .. } = *self;
-        match *root {
-            Some(ref mut node) => node.add((value, key)),
-            None => {
-                *root = Some(Node::new(value, key));
-                Ok(())
-            },
+    pub fn add(&mut self, new_node: (i32, i32)) -> Result<(), Errors> {
+        let root = &mut self.root;
+        if let &mut Some(ref mut node) = root {
+            node.add(new_node)
+        } else {
+            *root = Some(Node::new(new_node));
+            Ok(())
         }
     }
 
-    pub fn get(&self, key: i32) -> Result<i32, String> {
+    pub fn get(&self, key: i32) -> Result<i32, Errors> {
         let BST { ref root, .. } = *self;
         match *root {
             Some(ref node) => node.get(key),
-            None => Err(String::from("This tree is empty")),
+            None => Err(Errors::EmptyTree),
         }
     }
 
-    pub fn remove(&mut self, target_key: i32) -> Result<i32, String> {
+    pub fn remove(&mut self, target_key: i32) -> Result<i32, Errors> {
         let BST { ref mut root, .. } = *self;
         match *root {
             Some (_) => {
@@ -52,7 +51,7 @@ impl BST {
                     root.as_mut().unwrap().remove(target_key)
                 }
             },
-            None => Err(String::from("This tree is empty")),
+            None => Err(Errors::EmptyTree),
         }
     }
 }
